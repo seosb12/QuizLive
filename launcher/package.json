@@ -1,0 +1,88 @@
+{
+  "name": "launcher",
+  "version": "3.0.0",
+  "description": "SAFETY QUIZ",
+  "author": "서승범",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "release": "electron-builder --win --publish always"
+  },
+  "build": {
+    "appId": "safety.quiz",
+    "productName": "SAFETY QUIZ",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!runtime/**",
+      "!cloudflared.exe",
+      "!*.ps1"
+    ],
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!node_modules/**",
+          "!*.db",
+          "!*.db-shm",
+          "!*.db-wal",
+          "!uploads/**",
+          "!logs/**"
+        ]
+      },
+      {
+        "from": "../server/node_modules",
+        "to": "server/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../client/dist",
+        "to": "client/dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "cloudflared.exe",
+        "to": "cloudflared.exe"
+      },
+      {
+        "from": "runtime/node.exe",
+        "to": "runtime/node.exe"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "SAFETY-QUIZ-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "GITHUB_ID",
+        "repo": "QuizLive",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "archiver": "^5.3.2",
+    "concurrently": "^10.0.4",
+    "extract-zip": "^2.0.1",
+    "qrcode": "^1.5.4",
+    "wait-on": "^9.1.0",
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  }
+}

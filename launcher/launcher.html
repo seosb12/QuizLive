@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:5000 http://localhost:5000; img-src 'self' data:;"
+  />
+  <title>SAFETY QUIZ Launcher</title>
+  <style>
+    :root {
+      --bg: #0e0f1a;
+      --surface: #161727;
+      --surface-2: #1d1f33;
+      --line: #2a2d47;
+      --text: #f2f3ff;
+      --muted: #8a8db3;
+      --accent: #c6ff3d;
+      --ink: #0e0f1a;
+      --danger: #ff5c7a;
+      --c2: #3dd9ff;
+      --c3: #9b7bff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "Segoe UI", sans-serif;
+      letter-spacing: -0.01em;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 32px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .logo { font-family: "Segoe UI", sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+    .logo span { color: var(--accent); }
+    #appVersion { color: var(--muted); font-size: 13px; margin-left: 10px; font-weight: 600; }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 32px 40px;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 22px;
+    }
+
+    .card.span { grid-row: span 3; }
+
+    .card h2 {
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+      font-weight: 700;
+    }
+
+    .button-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+    button {
+      height: 44px;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s, background-color 0.15s, opacity 0.15s;
+    }
+
+    button:hover:not(:disabled) { background: var(--surface-2); }
+    button:active:not(:disabled) { transform: scale(0.97); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .start, .highlight { background: var(--accent) !important; color: var(--ink); border-color: var(--accent); }
+    .stop { color: var(--danger); }
+
+    #status { font-size: 22px; font-weight: 800; }
+    #cloudStatus { margin-top: 8px; font-size: 15px; }
+    #url { margin-top: 6px; color: var(--muted); font-size: 14px; word-break: break-all; line-height: 1.5; }
+
+    #qrBox { display: none; margin-top: 18px; text-align: center; }
+    #qrImage { display: block; width: 220px; height: 220px; margin: 0 auto; padding: 10px; background: #fff; border-radius: 16px; }
+    .qr-guide { margin-top: 10px; color: var(--muted); font-size: 14px; }
+    .save-qr { margin-top: 10px; }
+    #qrSaveStatus { min-height: 20px; margin-top: 8px; font-size: 13px; }
+
+    .pin {
+      font-family: "Segoe UI", sans-serif;
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #people { font-size: 22px; font-weight: 800; }
+
+    .notice, #backupStatus, #updateText {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+      word-break: break-all;
+    }
+
+    @media (max-width: 1100px) {
+      .container { grid-template-columns: 1fr; }
+      .card.span { grid-row: auto; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="logo">SAFETY<span>QUIZ</span> <small id="appVersion"></small></div>
+    <button class="open">퀴즈 화면 열기</button>
+  </header>
+
+  <div class="container">
+    <section class="card span">
+      <h2>서버</h2>
+      <p id="status">● 서버 중지</p>
+      <p id="cloudStatus">Cloudflare 연결 안 됨</p>
+      <p id="url">아직 링크가 생성되지 않았습니다.</p>
+
+      <div id="qrBox">
+        <img id="qrImage" alt="SAFETY QUIZ 접속 QR 코드" />
+        <p class="qr-guide">참가자는 이 QR 코드로 접속합니다. 링크는 자동으로 복사돼요.</p>
+        <button type="button" class="save-qr">QR 코드 저장</button>
+        <p id="qrSaveStatus"></p>
+      </div>
+
+      <div class="button-row">
+        <button class="start">서버 시작</button>
+        <button class="stop">서버 종료</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>관리자 PIN</h2>
+      <p class="pin" id="adminPin">------</p>
+      <p class="notice">이 PC가 아닌 기기(태블릿 등)에서 방을 만들 때 입력합니다. 런처를 켤 때마다 바뀌어요.</p>
+    </section>
+
+    <section class="card">
+      <h2>참가자</h2>
+      <p id="people">참가자 0명</p>
+    </section>
+
+    <section class="card">
+      <h2>업데이트</h2>
+      <p id="updateText">업데이트를 확인하지 않았습니다.</p>
+      <div class="button-row">
+        <button class="update">업데이트 확인</button>
+      </div>
+    </section>
+
+    <section class="card" style="grid-column: 1 / -1">
+      <h2>데이터</h2>
+      <p class="notice">문제와 업로드한 사진·영상을 ZIP으로 백업하거나 복원합니다. 업데이트해도 데이터는 그대로 유지돼요.</p>
+      <div class="button-row">
+        <button class="backup">데이터 백업</button>
+        <button class="restore">데이터 복원</button>
+        <button class="data-folder">데이터 폴더 열기</button>
+      </div>
+      <p id="backupStatus">백업 또는 복원 작업을 선택하세요.</p>
+    </section>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

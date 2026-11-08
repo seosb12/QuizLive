@@ -1,0 +1,23 @@
+# 패키지 (npm install 로 다시 생성)
+node_modules/
+
+# 빌드 결과물
+client/dist/
+launcher/dist/
+
+# 용량이 큰 실행 파일 (setup-v3.ps1 이 v2 폴더에서 복사)
+launcher/runtime/
+launcher/cloudflared.exe
+
+# 데이터 (실제 데이터는 %APPDATA%\SAFETY QUIZ 에 있음)
+*.db
+*.db-shm
+*.db-wal
+server/uploads/
+logs/
+*.log
+
+# 기타
+.env
+.DS_Store
+Thumbs.db

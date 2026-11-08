@@ -18,7 +18,8 @@ if (-not $remote -or $remote -notmatch "github\.com[:/]([^/]+)/QuizLive") {
 $owner = $Matches[1]
 node -e "const f='launcher/package.json';const p=require('./'+f);p.build.publish[0].owner='$owner';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
 
-$version = (Get-Content launcher\package.json -Raw | ConvertFrom-Json).version
+# PowerShell 5.1은 UTF-8 파일의 한글을 깨뜨려 읽으므로 node로 버전을 읽음
+$version = (node -p "require('./launcher/package.json').version").Trim()
 Write-Host "배포 버전: v$version  →  github.com/$owner/QuizLive" -ForegroundColor Cyan
 
 # 업로드 권한 토큰: 환경변수 → gh CLI → 직접 입력 순서로 찾음

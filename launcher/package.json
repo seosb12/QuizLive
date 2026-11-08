@@ -67,7 +67,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "GITHUB_ID",
+        "owner": "seosb12",
         "repo": "QuizLive",
         "releaseType": "release"
       }

@@ -17,7 +17,7 @@ function JoinQr({ url }) {
   return src ? <img className="qr" src={src} alt="참가 QR 코드" /> : null;
 }
 
-function Lobby({ roomCode, myId, users, isHost, settings, publicUrl, onCreateQuiz, onSettings, onStart, onLeave }) {
+function Lobby({ roomCode, myId, users, isHost, settings, publicUrl, onCreateQuiz, onSettings, onStart, onKick, onLeave }) {
   const players = users.filter((user) => user.role === "player");
   const me = users.find((user) => user.id === myId);
   const [starting, setStarting] = useState(false);
@@ -107,7 +107,16 @@ function Lobby({ roomCode, myId, users, isHost, settings, publicUrl, onCreateQui
             <ul className="chips">
               {players.map((user) => (
                 <li key={user.id} className={user.connected === false ? "chip off" : "chip"}>
-                  {user.nickname}
+                  <span>{user.nickname}</span>
+                  <button
+                    type="button"
+                    className="kick"
+                    onClick={() => onKick(user)}
+                    aria-label={`${user.nickname} 내보내기`}
+                    title="내보내기"
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
             </ul>

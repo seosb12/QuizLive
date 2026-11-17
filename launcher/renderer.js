@@ -657,7 +657,13 @@ function renderUpdate(state) {
 
   const [text, label, disabled] = map[currentUpdate.status] || map.idle;
 
-  updateText.textContent = text;
+  // 새 버전이 있으면 릴리스에 적은 "바뀐 점"도 함께 표시
+  const notes =
+    (currentUpdate.status === "available" || currentUpdate.status === "ready") && currentUpdate.notes
+      ? `\n바뀐 점: ${currentUpdate.notes.trim()}`
+      : "";
+
+  updateText.textContent = text + notes;
   updateButton.textContent = label;
   updateButton.disabled = disabled;
   updateButton.classList.toggle(

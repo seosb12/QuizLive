@@ -532,8 +532,37 @@ textarea.input {
   animation: pop 0.3s ease-out;
 }
 
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .chip.off {
   opacity: 0.4;
+}
+
+/* 강퇴 버튼: 평소엔 흐리게, 마우스를 올리면 빨갛게 */
+.kick {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.kick:hover,
+.kick:focus-visible {
+  background: var(--danger);
+  color: #1a0710;
 }
 
 @keyframes pop {
@@ -1118,7 +1147,7 @@ button.choice:disabled {
 .mini-rank li,
 .rest li {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
@@ -1141,8 +1170,18 @@ button.choice:disabled {
   color: var(--muted);
 }
 
-.leader li:first-child .rank {
+.leader li:first-child .rank,
+.leader li:first-child .kick {
   color: var(--accent-ink);
+}
+
+.leader .kick {
+  opacity: 0;
+}
+
+.leader li:hover .kick,
+.leader .kick:focus-visible {
+  opacity: 1;
 }
 
 .leader .name,

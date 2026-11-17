@@ -17,7 +17,7 @@ function AutoNext({ result }) {
   return <span className="muted">{Math.ceil(remainingMs / 1000)}초 후 자동으로 넘어가요</span>;
 }
 
-function HostResult({ result, onNext, onEndGame }) {
+function HostResult({ result, onNext, onEndGame, onKick }) {
   const [busy, setBusy] = useState(false);
   const choices = choicesOf(result);
   const isBalance = result.quizType === "balance";
@@ -86,13 +86,24 @@ function HostResult({ result, onNext, onEndGame }) {
               <li key={user.id}>
                 <span className="num rank">{index + 1}</span>
                 <span className="name">{user.nickname}</span>
-                {!isBalance && earned[user.id] !== 0 && (
+                {!isBalance && earned[user.id] ? (
                   <span className={earned[user.id] > 0 ? "num delta up" : "num delta down"}>
                     {earned[user.id] > 0 ? "+" : ""}
                     {earned[user.id]}
                   </span>
+                ) : (
+                  <span />
                 )}
                 <span className="num score">{user.score}</span>
+                <button
+                  type="button"
+                  className="kick"
+                  onClick={() => onKick(user)}
+                  aria-label={`${user.nickname} 내보내기`}
+                  title="내보내기"
+                >
+                  ×
+                </button>
               </li>
             ))}
           </ol>
@@ -192,9 +203,9 @@ function PlayerResult({ result, myId }) {
   );
 }
 
-function Result({ result, myId, isHost, onNext, onEndGame }) {
+function Result({ result, myId, isHost, onNext, onEndGame, onKick }) {
   return isHost ? (
-    <HostResult result={result} onNext={onNext} onEndGame={onEndGame} />
+    <HostResult result={result} onNext={onNext} onEndGame={onEndGame} onKick={onKick} />
   ) : (
     <PlayerResult key={result.quizNumber} result={result} myId={myId} />
   );

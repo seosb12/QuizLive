@@ -121,6 +121,14 @@ function App() {
         resetToHome();
         notify(data?.message || "방이 종료되었습니다.", "방 종료");
       },
+      kicked: (data) => {
+        resetToHome();
+        notify(data?.message || "방장에 의해 퇴장되었습니다.", "퇴장");
+      },
+      sessionMoved: (data) => {
+        resetToHome();
+        notify(data?.message || "다른 곳에서 같은 자리로 접속했습니다.", "연결 이동");
+      },
     };
 
     Object.entries(handlers).forEach(([event, fn]) => socket.on(event, fn));
@@ -195,6 +203,18 @@ function App() {
     setPage("lobby");
   };
 
+  const kickPlayer = async (user) => {
+    const ok = await confirmDialog(
+      `"${user.nickname}" 님을 내보낼까요? 같은 기기로는 다시 들어올 수 없어요.`,
+      "참가자 내보내기",
+      "내보내기",
+      "취소",
+      true
+    );
+    if (!ok) return;
+    if (!fail(await request("kickPlayer", { userId: user.id }))) toast(`${user.nickname} 님을 내보냈어요`);
+  };
+
   const leaveGame = async () => {
     const message = isHost
       ? "방장이 나가면 방이 종료되고 모든 참가자가 나가게 됩니다."
@@ -221,6 +241,7 @@ function App() {
         onCreateQuiz={() => setPage("createQuiz")}
         onSettings={() => setPage("settings")}
         onStart={startGame}
+        onKick={kickPlayer}
         onLeave={leaveGame}
       />
     );
@@ -241,7 +262,9 @@ function App() {
       />
     );
   } else if (page === "result" && result) {
-    content = <Result result={result} myId={myId} isHost={isHost} onNext={nextQuiz} onEndGame={endGameNow} />;
+    content = (
+      <Result result={result} myId={myId} isHost={isHost} onNext={nextQuiz} onEndGame={endGameNow} onKick={kickPlayer} />
+    );
   } else if (page === "final") {
     content = (
       <Final ranking={ranking} myId={myId} isHost={isHost} onLobby={goLobbyAfterGame} onLeave={leaveGame} />

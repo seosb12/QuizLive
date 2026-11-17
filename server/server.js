@@ -349,8 +349,12 @@ function checkAnswer(quiz, selectedAnswer) {
 // ─────────────────────────────────────────────
 const rooms = {};
 
-const PLAYER_RECONNECT_GRACE_MS = 90 * 1000;
-const HOST_RECONNECT_GRACE_MS = 3 * 60 * 1000;
+// 연결이 끊긴 사람을 얼마나 기다렸다가 내보낼지
+// - 대기실·최종 결과: 참가자 90초, 방장 3분
+// - 게임 진행 중: 최대 30분까지 자리를 유지 (휴대폰 화면이 꺼져도 점수가 사라지지 않도록)
+const PLAYER_RECONNECT_GRACE_MS = Number(process.env.QUIZLIVE_PLAYER_GRACE_MS) || 90 * 1000;
+const HOST_RECONNECT_GRACE_MS = Number(process.env.QUIZLIVE_HOST_GRACE_MS) || 3 * 60 * 1000;
+const MAX_ABSENT_DURING_GAME_MS = 30 * 60 * 1000;
 const SUBMIT_GRACE_MS = 800;
 
 function makeRoomCode() {
@@ -399,8 +403,24 @@ function getRanking(room) {
     .sort((a, b) => b.score - a.score || a.nickname.localeCompare(b.nickname, "ko"));
 }
 
+// user.id  : 화면에 보여주고 다른 사람에게도 전송되는 공개 ID
+// user.key : 그 사람의 브라우저만 아는 비밀 키 (재접속할 때 본인 확인용)
+// v3.0.0에서는 비밀 키를 ID로 그대로 써서, 참가자가 방장의 키를 보고
+// 방장 자리를 빼앗을 수 있었습니다. 키는 절대 다른 사람에게 보내지 않습니다.
+function makePublicId() {
+  return crypto.randomBytes(6).toString("hex");
+}
+
 function findUser(room, userId) {
   return room.users.find((user) => user.id === userId);
+}
+
+function findUserByKey(room, key) {
+  return room.users.find((user) => user.key === key);
+}
+
+function getSocket(socketId) {
+  return socketId ? io.of("/").sockets.get(socketId) : null;
 }
 
 function broadcastUsers(roomCode) {
@@ -530,7 +550,7 @@ function getResultData(room) {
   const answerStats = { 1: 0, 2: 0, 3: 0, 4: 0 };
 
   Object.values(room.answers).forEach((answer) => {
-    if (answerStats[answer.selectedAnswer] !== undefined) {
+    if (typeof answer.selectedAnswer === "number" && answerStats[answer.selectedAnswer] !== undefined) {
       answerStats[answer.selectedAnswer] += 1;
     }
   });
@@ -615,6 +635,32 @@ function closeRoom(roomCode, message) {
   io.to(roomCode).emit("roomClosed", { message });
   io.in(roomCode).socketsLeave(roomCode);
   delete rooms[roomCode];
+}
+
+function scheduleRemoval(roomCode, userId) {
+  const room = rooms[roomCode];
+  const user = room && findUser(room, userId);
+  if (!user) return;
+
+  clearTimeout(user.removeTimer);
+
+  const grace = user.role === "host" ? HOST_RECONNECT_GRACE_MS : PLAYER_RECONNECT_GRACE_MS;
+
+  user.removeTimer = setTimeout(() => {
+    const latestRoom = rooms[roomCode];
+    const latestUser = latestRoom && findUser(latestRoom, userId);
+    if (!latestUser || latestUser.connected) return;
+
+    const absentMs = Date.now() - (latestUser.disconnectedAt || Date.now());
+
+    // 게임 중이면 자리를 유지하고 다시 확인
+    if (latestRoom.gameStarted && absentMs < MAX_ABSENT_DURING_GAME_MS) {
+      scheduleRemoval(roomCode, userId);
+      return;
+    }
+
+    removeUser(roomCode, userId);
+  }, grace);
 }
 
 function removeUser(roomCode, userId) {
@@ -805,7 +851,20 @@ io.on("connection", (socket) => {
 
     clearTimeout(user.removeTimer);
     user.removeTimer = null;
+
+    // 같은 자리에 다른 탭(탭 복제 등)이 붙어 있었다면 그쪽은 연결을 정리
+    if (user.socketId && user.socketId !== socket.id) {
+      const oldSocket = getSocket(user.socketId);
+      if (oldSocket) {
+        oldSocket.leave(room.code);
+        oldSocket.data.roomCode = null;
+        oldSocket.data.userId = null;
+        oldSocket.emit("sessionMoved", { message: "다른 탭이나 기기에서 같은 자리로 접속했습니다." });
+      }
+    }
+
     user.socketId = socket.id;
+    user.disconnectedAt = null;
     user.connected = true;
     socket.data.roomCode = room.code;
     socket.data.userId = user.id;
@@ -872,9 +931,10 @@ io.on("connection", (socket) => {
         quizList: [],
         usedQuizIds: [],
         finalRanking: null,
+        bannedKeys: new Set(),
       };
 
-      const host = { id: key, nickname: name, role: "host", score: 0, submitted: false };
+      const host = { id: makePublicId(), key, nickname: name, role: "host", score: 0, submitted: false };
       room.users.push(host);
       rooms[roomCode] = room;
       attach(room, host);
@@ -895,8 +955,12 @@ io.on("connection", (socket) => {
     if (!name) return reply({ success: false, message: "닉네임을 입력하세요." });
     if (!key) return reply({ success: false, message: "잘못된 접속 정보입니다. 새로고침해주세요." });
 
+    if (room.bannedKeys.has(key)) {
+      return reply({ success: false, message: "방장에 의해 퇴장되어 이 방에 다시 들어갈 수 없습니다." });
+    }
+
     // 같은 기기(같은 탭)가 다시 들어오면 기존 자리로 복귀
-    const existing = findUser(room, key);
+    const existing = findUserByKey(room, key);
     if (existing) {
       attach(room, existing);
       reply({ success: true, ...getRoomSnapshot(room, existing) });
@@ -919,7 +983,7 @@ io.on("connection", (socket) => {
       return reply({ success: false, message: "이미 사용 중인 닉네임입니다." });
     }
 
-    const player = { id: key, nickname: name, role: "player", score: 0, submitted: false };
+    const player = { id: makePublicId(), key, nickname: name, role: "player", score: 0, submitted: false };
     room.users.push(player);
     attach(room, player);
 
@@ -931,7 +995,7 @@ io.on("connection", (socket) => {
   on("rejoinRoom", ({ roomCode, clientKey }, reply) => {
     const room = rooms[String(roomCode ?? "")];
     const key = cleanClientKey(clientKey);
-    const user = room && key ? findUser(room, key) : null;
+    const user = room && key ? findUserByKey(room, key) : null;
 
     if (!user) return reply({ success: false, message: "이전 방에 다시 들어갈 수 없습니다." });
 
@@ -1249,6 +1313,31 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("backToLobby");
   });
 
+  on("kickPlayer", ({ userId }, reply) => {
+    const ctx = requireHost(reply);
+    if (!ctx) return;
+    const { room, roomCode } = ctx;
+
+    const target = findUser(room, String(userId ?? ""));
+    if (!target || target.role !== "player") {
+      return reply({ success: false, message: "내보낼 참가자를 찾을 수 없습니다." });
+    }
+
+    // 같은 브라우저로 다시 들어오지 못하게 막음
+    room.bannedKeys.add(target.key);
+
+    const targetSocket = getSocket(target.socketId);
+    if (targetSocket) {
+      targetSocket.emit("kicked", { message: "방장에 의해 퇴장되었습니다." });
+      targetSocket.leave(roomCode);
+      targetSocket.data.roomCode = null;
+      targetSocket.data.userId = null;
+    }
+
+    removeUser(roomCode, target.id);
+    reply({ success: true });
+  });
+
   on("leaveRoom", (payload, reply) => {
     const { room, user, roomCode } = current();
     if (room) {
@@ -1272,13 +1361,9 @@ io.on("connection", (socket) => {
       io.to(roomCode).emit("hostStatus", { connected: false });
     }
 
-    // 바로 내보내지 않고 잠시 기다립니다 (새로고침·화면 꺼짐 대비)
-    const grace = user.role === "host" ? HOST_RECONNECT_GRACE_MS : PLAYER_RECONNECT_GRACE_MS;
-    user.removeTimer = setTimeout(() => {
-      const latestRoom = rooms[roomCode];
-      const latestUser = latestRoom && findUser(latestRoom, user.id);
-      if (latestUser && !latestUser.connected) removeUser(roomCode, user.id);
-    }, grace);
+    // 바로 내보내지 않고 기다립니다 (새로고침·화면 꺼짐 대비)
+    user.disconnectedAt = Date.now();
+    scheduleRemoval(roomCode, user.id);
   });
 });
 

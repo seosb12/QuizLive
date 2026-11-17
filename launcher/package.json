@@ -1,6 +1,6 @@
 {
   "name": "launcher",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "SAFETY QUIZ",
   "author": "서승범",
   "main": "main.js",
@@ -8,13 +8,14 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "release": "electron-builder --win --publish always"
+    "dist": "electron-builder --win --publish never"
   },
   "build": {
     "appId": "safety.quiz",
     "productName": "SAFETY QUIZ",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "**/*",
@@ -62,7 +63,22 @@
     ],
     "win": {
       "target": "nsis",
+      "icon": "build/icon.ico",
       "artifactName": "SAFETY-QUIZ-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "SAFETY QUIZ",
+      "runAfterFinish": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "uninstallDisplayName": "SAFETY QUIZ",
+      "deleteAppDataOnUninstall": false,
+      "language": "1042"
     },
     "publish": [
       {
